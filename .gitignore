@@ -1,0 +1,13 @@
+build/
+out/
+.vs/
+.vscode/
+*.user
+CMakeUserPresets.json
+__pycache__/
+*.pyc
+
+# Generated / downloaded data (the checked-in CVE subset lives in data/, the
+# raw NVD feed does not).
+tools/nvd/raw/
+*.sqlite-journal
