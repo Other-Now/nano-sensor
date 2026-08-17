@@ -72,5 +72,25 @@ else()
     target_compile_options(nano-sensor PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# ---------------------------------------------------------------------------
+# Tests. No external framework -- see tests/test_util.hpp for why.
+# ---------------------------------------------------------------------------
+enable_testing()
+
+add_executable(ns_tests
+    tests/main.cpp
+    tests/test_json.cpp
+)
+target_link_libraries(ns_tests PRIVATE ns_core)
+target_include_directories(ns_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+
+if(MSVC)
+    target_compile_options(ns_tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(ns_tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_test(NAME unit COMMAND ns_tests)
+
 message(STATUS "nano-sensor ${PROJECT_VERSION} -- platform backend: "
                "${CMAKE_SYSTEM_NAME}, build type: ${CMAKE_BUILD_TYPE}")
