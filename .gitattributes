@@ -1,0 +1,10 @@
+# Normalise to LF in the repository. Development happens on Windows but the
+# Linux backend, the systemd unit, and the Dockerfile all break on CRLF, so the
+# checkout must not depend on which OS cloned it.
+* text=auto eol=lf
+
+*.sln  text eol=crlf
+*.vcxproj text eol=crlf
+
+*.png binary
+*.sqlite binary
