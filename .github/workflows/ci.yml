@@ -1,0 +1,125 @@
+name: ci
+
+# The Linux half of this project was written on a Windows machine with no WSL
+# distro and no Docker, so CI is not a formality here -- it is the only place
+# the Linux backend gets compiled and exercised at all. Both jobs run the same
+# proofs the README quotes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build -j"$(nproc)"
+
+      - name: Unit tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Inventory collects real data
+        run: |
+          ./build/bin/nano-sensor inventory --pretty > inventory.json
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("inventory.json"))
+          # The Linux backend has never run on the author's machine. These
+          # assertions are what turns "it compiles" into "it works".
+          assert d["host"]["hostname"], "no hostname"
+          assert d["host"]["os_name"], "no os_name"
+          assert d["host"]["kernel"], "no kernel"
+          assert len(d["interfaces"]) > 0, "no interfaces"
+          assert len(d["processes"]) > 10, f"only {len(d['processes'])} processes"
+          assert len(d["packages"]) > 50, f"only {len(d['packages'])} packages"
+          assert len(d["listening_sockets"]) > 0, "no listening sockets"
+          print(f"interfaces={len(d['interfaces'])} sockets={len(d['listening_sockets'])} "
+                f"processes={len(d['processes'])} packages={len(d['packages'])}")
+          PY
+
+      - name: Socket inventory matches `ss`
+        run: |
+          sudo ./build/bin/nano-sensor inventory > inv-root.json
+          python3 tools/verify_inventory.py inv-root.json
+
+      - name: CVE matcher accuracy vs substring baseline
+        run: python3 tools/eval_cve_match.py --binary build/bin/nano-sensor
+
+      - name: Chaos test -- outage plus SIGKILL, zero loss
+        run: |
+          bash tools/make_test_certs.sh build/testpki
+          python3 tools/chaos_test.py --binary build/bin/nano-sensor
+
+      - name: SIGTERM shuts the daemon down cleanly
+        run: |
+          bash tools/make_test_certs.sh build/testpki
+          python3 tools/mock_cloud.py --pki build/testpki --port 8443 &
+          sleep 2
+          ./build/bin/nano-sensor run \
+            --url https://127.0.0.1:8443/v1/events \
+            --client-cert build/testpki/client.crt \
+            --client-key build/testpki/client.key \
+            --pin-file build/testpki/server.pin \
+            --spool build/runspool --synthetic 3 --interval 2 > /dev/null 2> run.log &
+          AGENT=$!
+          sleep 6
+          kill -TERM $AGENT
+          # The point of the test: the agent must exit 0 of its own accord after
+          # finishing its cycle, not be killed. systemd's `systemctl stop` sends
+          # exactly this signal.
+          wait $AGENT
+          echo "agent exited with $?"
+          cat run.log
+          grep -q "agent stopped cleanly" run.log
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          cmake --build build --config RelWithDebInfo
+
+      - name: Unit tests
+        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
+
+      - name: Socket inventory matches `netstat -ano`
+        run: |
+          ./build/bin/RelWithDebInfo/nano-sensor.exe inventory > inv.json
+          python tools/verify_inventory.py inv.json
+
+      - name: CVE matcher accuracy vs substring baseline
+        run: python tools/eval_cve_match.py --binary build/bin/RelWithDebInfo/nano-sensor.exe
+
+      - name: Chaos test -- outage plus hard kill, zero loss
+        shell: bash
+        run: |
+          bash tools/make_test_certs.sh build/testpki
+          python tools/chaos_test.py --binary build/bin/RelWithDebInfo/nano-sensor.exe
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image and run the agent inside it
+        run: |
+          docker build -f deploy/Dockerfile -t nano-sensor:ci .
+          docker run --rm nano-sensor:ci version
+          # hostPID's docker equivalent: without --pid=host the agent sees only
+          # the container's own processes, which is exactly the failure mode the
+          # K8s DaemonSet notes warn about.
+          docker run --rm --pid=host nano-sensor:ci inventory | head -c 400

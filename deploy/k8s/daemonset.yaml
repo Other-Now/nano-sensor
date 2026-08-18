@@ -1,0 +1,117 @@
+# One sensor per node. A Deployment would be wrong here: the thing being
+# inventoried is the NODE, so exactly one agent per node is the requirement, and
+# that is what a DaemonSet expresses.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nano-sensor
+  namespace: nano-sensor
+  labels:
+    app.kubernetes.io/name: nano-sensor
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nano-sensor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nano-sensor
+    spec:
+      # Without hostPID the agent enumerates the container's own handful of
+      # processes and reports a node with almost nothing running on it -- a
+      # confidently wrong answer, which is the failure mode this project works
+      # hardest to avoid. hostNetwork is needed for the same reason: the
+      # listening sockets that matter belong to the node, not to a pod sandbox.
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      # Sensors must not be the reason a node evicts real workloads, but they
+      # also have to run on nodes that are already under pressure -- those are
+      # the interesting ones.
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+
+      terminationGracePeriodSeconds: 60
+
+      containers:
+        - name: nano-sensor
+          image: ghcr.io/other-now/nano-sensor:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - --url=$(CLOUD_URL)
+            - --client-cert=/etc/nano-sensor/client.pem
+            - --client-key=/etc/nano-sensor/client.key
+            - --pin-file=/etc/nano-sensor/server.pin
+            - --spool=/var/lib/nano-sensor/spool
+            - --interval=300
+
+          env:
+            - name: CLOUD_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: nano-sensor-config
+                  key: cloud_url
+
+          securityContext:
+            # Reading /proc/<pid>/fd for other users' processes is what resolves
+            # a listening socket to its owning process. Without it most sockets
+            # report no owner.
+            runAsUser: 0
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["DAC_READ_SEARCH", "SYS_PTRACE"]
+
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              # No CPU limit on purpose: throttling a sensor mid-collection
+              # stretches the cycle instead of shortening it. Memory is capped
+              # because a leak must kill the pod, not the node.
+              memory: 256Mi
+
+          volumeMounts:
+            - name: spool
+              mountPath: /var/lib/nano-sensor
+            - name: creds
+              mountPath: /etc/nano-sensor
+              readOnly: true
+            - name: host-proc
+              mountPath: /host/proc
+              readOnly: true
+
+      volumes:
+        # hostPath, not emptyDir: the spool has to survive pod restarts, or an
+        # agent restart during an outage discards exactly the data the spool
+        # exists to protect.
+        - name: spool
+          hostPath:
+            path: /var/lib/nano-sensor
+            type: DirectoryOrCreate
+        - name: creds
+          secret:
+            secretName: nano-sensor-credentials
+            defaultMode: 0400
+        - name: host-proc
+          hostPath:
+            path: /proc
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nano-sensor
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nano-sensor-config
+  namespace: nano-sensor
+data:
+  cloud_url: "https://cloud.example.com/v1/events"

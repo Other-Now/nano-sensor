@@ -7,6 +7,6 @@ inline constexpr const char* kAgentVersion = "0.1.0";
 
 // Bumped as the staged ladder in PLAN.md advances, so a report received by the
 // cloud says which capabilities the sending agent actually had.
-inline constexpr const char* kAgentStage = "stage2-cve";
+inline constexpr const char* kAgentStage = "stage4-service";
 
 } // namespace ns

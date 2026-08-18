@@ -33,9 +33,9 @@ set(NS_SOURCES
 # inside -- it is simply not in the build. Keeping the OS-specific code in
 # whole files rather than in #ifdef blocks is the point of the platform layer.
 if(WIN32)
-    list(APPEND NS_SOURCES src/platform/platform_windows.cpp)
+    list(APPEND NS_SOURCES src/platform/platform_windows.cpp src/service_windows.cpp)
 elseif(UNIX AND NOT APPLE)
-    list(APPEND NS_SOURCES src/platform/platform_linux.cpp)
+    list(APPEND NS_SOURCES src/platform/platform_linux.cpp src/service_linux.cpp)
 else()
     message(FATAL_ERROR
         "nano-sensor targets Windows and Linux only. macOS would need a third "

@@ -1,0 +1,70 @@
+[Unit]
+Description=nano-sensor security sensor
+Documentation=https://github.com/Other-Now/nano-sensor
+# The agent tolerates the network being down -- that is what the spool is for --
+# so this is a preference, not a requirement. Wants= rather than Requires= means
+# a host that boots without connectivity still starts collecting.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/nano-sensor run \
+    --url https://cloud.example.com/v1/events \
+    --client-cert /etc/nano-sensor/client.pem \
+    --client-key /etc/nano-sensor/client.key \
+    --pin-file /etc/nano-sensor/server.pin \
+    --spool /var/lib/nano-sensor/spool \
+    --interval 300
+
+# SIGTERM, then a generous grace period: the agent finishes its current cycle
+# rather than dying mid-collection. Killing it earlier is safe -- the spool is
+# crash-safe -- but it wastes the cycle and re-sends the last batch.
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+Restart=on-failure
+RestartSec=10s
+
+# --- privileges ----------------------------------------------------------
+# Runs as root by default, and it genuinely needs to: resolving a listening
+# socket to its owning process requires reading /proc/<pid>/fd for processes
+# owned by other users, and an unprivileged agent silently reports most sockets
+# with no owner. Everything below narrows what root can actually reach.
+User=root
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+
+# ProtectSystem=strict makes everything read-only, so the spool needs an
+# explicit exception. It is the only path the agent writes to.
+StateDirectory=nano-sensor
+ReadWritePaths=/var/lib/nano-sensor
+
+# The agent reads and reports; it never needs to change anything on the host.
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE
+AmbientCapabilities=
+
+# Modest limits: this is a background sensor and must never be the reason a
+# production host runs out of anything.
+CPUQuota=25%
+MemoryMax=256M
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target
