@@ -30,24 +30,12 @@ jobs:
       - name: Unit tests
         run: ctest --test-dir build --output-on-failure
 
+      # The Linux backend has never run on the author's machine. This step is
+      # what turns "it compiles" into "it works".
       - name: Inventory collects real data
         run: |
-          ./build/bin/nano-sensor inventory --pretty > inventory.json
-          python3 - <<'PY'
-          import json, sys
-          d = json.load(open("inventory.json"))
-          # The Linux backend has never run on the author's machine. These
-          # assertions are what turns "it compiles" into "it works".
-          assert d["host"]["hostname"], "no hostname"
-          assert d["host"]["os_name"], "no os_name"
-          assert d["host"]["kernel"], "no kernel"
-          assert len(d["interfaces"]) > 0, "no interfaces"
-          assert len(d["processes"]) > 10, f"only {len(d['processes'])} processes"
-          assert len(d["packages"]) > 50, f"only {len(d['packages'])} packages"
-          assert len(d["listening_sockets"]) > 0, "no listening sockets"
-          print(f"interfaces={len(d['interfaces'])} sockets={len(d['listening_sockets'])} "
-                f"processes={len(d['processes'])} packages={len(d['packages'])}")
-          PY
+          ./build/bin/nano-sensor inventory > inventory.json
+          python3 tools/check_inventory_sane.py inventory.json
 
       - name: Socket inventory matches `ss`
         run: |
@@ -111,11 +99,15 @@ jobs:
           echo "NS_BIN=$BIN" >> "$GITHUB_ENV"
           echo "found $BIN"
 
-      - name: Socket inventory matches `netstat -ano`
+      - name: Inventory collects real data
         shell: bash
         run: |
           "$NS_BIN" inventory > inv.json
-          python tools/verify_inventory.py inv.json
+          python tools/check_inventory_sane.py inv.json
+
+      - name: Socket inventory matches `netstat -ano`
+        shell: bash
+        run: python tools/verify_inventory.py inv.json
 
       - name: CVE matcher accuracy vs substring baseline
         shell: bash
