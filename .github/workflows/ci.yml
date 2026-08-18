@@ -89,27 +89,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No -G here on purpose. Pinning "Visual Studio 17 2022" broke the moment
+      # the hosted image moved to a newer Visual Studio, with a configure error
+      # that says nothing about the real cause. CMake already picks the newest
+      # installed VS generator on Windows, which is the thing we actually want.
       - name: Configure and build
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          cmake -S . -B build -A x64
           cmake --build build --config RelWithDebInfo
 
       - name: Unit tests
         run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
 
-      - name: Socket inventory matches `netstat -ano`
+      # Multi-config generators nest the binary under a per-config directory and
+      # single-config ones do not, so the path is discovered rather than assumed.
+      - name: Locate the binary
+        shell: bash
         run: |
-          ./build/bin/RelWithDebInfo/nano-sensor.exe inventory > inv.json
+          BIN=$(find build/bin -name 'nano-sensor.exe' | head -1)
+          test -n "$BIN" || { echo "nano-sensor.exe not found under build/bin"; exit 1; }
+          echo "NS_BIN=$BIN" >> "$GITHUB_ENV"
+          echo "found $BIN"
+
+      - name: Socket inventory matches `netstat -ano`
+        shell: bash
+        run: |
+          "$NS_BIN" inventory > inv.json
           python tools/verify_inventory.py inv.json
 
       - name: CVE matcher accuracy vs substring baseline
-        run: python tools/eval_cve_match.py --binary build/bin/RelWithDebInfo/nano-sensor.exe
+        shell: bash
+        run: python tools/eval_cve_match.py --binary "$NS_BIN"
 
       - name: Chaos test -- outage plus hard kill, zero loss
         shell: bash
         run: |
           bash tools/make_test_certs.sh build/testpki
-          python tools/chaos_test.py --binary build/bin/RelWithDebInfo/nano-sensor.exe
+          python tools/chaos_test.py --binary "$NS_BIN"
 
   docker:
     runs-on: ubuntu-latest
