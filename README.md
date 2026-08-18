@@ -92,6 +92,30 @@ sockets that live for milliseconds cannot be expected to agree. That is a
 property of comparing two snapshots, not a defect in either tool, and pretending
 otherwise would produce a test that fails at random.
 
+### Both platforms, actually verified
+
+The Linux backend was written on a Windows machine with no WSL distro and no
+Docker. It has therefore never been compiled locally — [CI](../../actions) is
+the only place it builds, and the Linux job is written to prove behaviour rather
+than compilation:
+
+```
+-- nano-sensor 0.1.0 -- platform: Linux, TLS backend: openssl
+
+interfaces=4 sockets=9 processes=156 packages=1209
+proto   agent  truth  agreed  missing  extra  recall
+tcp         3      3       3        0      0  100.0%
+udp         4      4       4        0      0  100.0%
+
+nano-sensor          100.0%  100.0%  1.00        (substring baseline 46.2% / 63.2%)
+records accepted 125, LOST 0
+{"level":"info","msg":"agent stopped cleanly"}
+```
+
+That last line is the systemd path: `kill -TERM`, and the agent finishes its
+cycle and exits 0 by itself rather than being killed. `systemctl stop` sends
+exactly that signal.
+
 ---
 
 ## What it does
