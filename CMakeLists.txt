@@ -26,6 +26,7 @@ set(NS_SOURCES
     src/inventory.cpp
     src/vercmp.cpp
     src/cve.cpp
+    src/spool.cpp
 )
 
 # Exactly one platform backend is compiled. The other is not #ifdef'd out from
@@ -41,6 +42,30 @@ else()
         "backend (sysctl KERN_PROC / libproc) that is deliberately out of scope.")
 endif()
 
+# The TLS transport, chosen the same way: one backend per platform, whole files.
+#
+# Windows uses WinHTTP rather than a bundled OpenSSL because it is already
+# present on every host and inherits the machine's proxy configuration (PAC,
+# WPAD, authenticated CONNECT) for free -- which is most of the proxy-traversal
+# requirement, unwritten.
+set(NS_TLS_BACKEND "none")
+if(WIN32)
+    list(APPEND NS_SOURCES src/transport.cpp src/transport_winhttp.cpp)
+    set(NS_TLS_BACKEND "winhttp")
+else()
+    find_package(OpenSSL)
+    if(OpenSSL_FOUND)
+        list(APPEND NS_SOURCES src/transport.cpp src/transport_openssl.cpp)
+        set(NS_TLS_BACKEND "openssl")
+    else()
+        # Degrades rather than failing the build: inventory and CVE matching are
+        # still useful without a transport, and the stub reports its own absence
+        # instead of silently dropping telemetry.
+        list(APPEND NS_SOURCES src/transport.cpp src/transport_none.cpp)
+        message(WARNING "OpenSSL not found -- building without a TLS transport")
+    endif()
+endif()
+
 add_library(ns_core STATIC ${NS_SOURCES})
 target_include_directories(ns_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -50,10 +75,15 @@ if(WIN32)
         NOMINMAX
         UNICODE
         _UNICODE)
-    # Advapi32: registry (OS version now, installed-software enumeration later).
-    # Iphlpapi: GetAdaptersAddresses / GetExtendedTcpTable (stage 1).
-    # Ws2_32:   address formatting for socket inventory (stage 1).
-    target_link_libraries(ns_core PUBLIC Advapi32 Iphlpapi Ws2_32)
+    # Advapi32: registry (OS version, installed-software enumeration).
+    # Iphlpapi: GetAdaptersAddresses / GetExtendedTcpTable.
+    # Ws2_32:   address formatting for socket inventory.
+    # Winhttp:  the HTTPS/mTLS transport.
+    # Crypt32:  PKCS#12 client-certificate loading.
+    # Bcrypt:   SHA-256 for the server-certificate pin.
+    target_link_libraries(ns_core PUBLIC Advapi32 Iphlpapi Ws2_32 Winhttp Crypt32 Bcrypt)
+elseif(NS_TLS_BACKEND STREQUAL "openssl")
+    target_link_libraries(ns_core PUBLIC OpenSSL::SSL OpenSSL::Crypto)
 endif()
 
 if(MSVC)
@@ -84,6 +114,8 @@ add_executable(ns_tests
     tests/test_json.cpp
     tests/test_vercmp.cpp
     tests/test_cve.cpp
+    tests/test_spool.cpp
+    tests/test_transport.cpp
 )
 target_link_libraries(ns_tests PRIVATE ns_core)
 target_include_directories(ns_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
@@ -96,5 +128,5 @@ endif()
 
 add_test(NAME unit COMMAND ns_tests)
 
-message(STATUS "nano-sensor ${PROJECT_VERSION} -- platform backend: "
-               "${CMAKE_SYSTEM_NAME}, build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "nano-sensor ${PROJECT_VERSION} -- platform: ${CMAKE_SYSTEM_NAME}, "
+               "TLS backend: ${NS_TLS_BACKEND}, build type: ${CMAKE_BUILD_TYPE}")
