@@ -33,6 +33,12 @@ public:
     JsonWriter& field(std::string_view key, std::string_view value);
     JsonWriter& field(std::string_view key, const char* value);
     JsonWriter& field(std::string_view key, bool value);
+
+    // CVSS base scores are one decimal place by definition, and emitting them
+    // through the default double formatting yields things like 7.7999999999999998,
+    // which a report reader reasonably reads as a bug.
+    JsonWriter& field(std::string_view key, double value);
+
     JsonWriter& field_null(std::string_view key);
 
     template <class T,

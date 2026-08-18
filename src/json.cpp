@@ -128,6 +128,15 @@ JsonWriter& JsonWriter::field(std::string_view key, bool value) {
     return *this;
 }
 
+JsonWriter& JsonWriter::field(std::string_view key, double value) {
+    separator();
+    write_key(key);
+    std::array<char, 32> buf{};
+    std::snprintf(buf.data(), buf.size(), "%.1f", value);
+    out_ += buf.data();
+    return *this;
+}
+
 JsonWriter& JsonWriter::field_i64(std::string_view key, std::int64_t value) {
     separator();
     write_key(key);
