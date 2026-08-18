@@ -1,0 +1,119 @@
+# Package/process name -> CPE vendor:product.
+#
+# This table is the join between what a host calls its software and what NVD
+# calls it, and it is where CVE-matching accuracy actually lives. Nothing about
+# "openssh-server", "libssl3", or "Mozilla Firefox (x64 en-US)" tells a matcher
+# which CPE product it is; only a curated mapping does.
+#
+# Names are matched against CveIndex::normalize_name() output: lowercased, with
+# parenthesised groups, version tokens, and arch/locale noise removed. So the
+# Windows DisplayName "Python 3.12.1 (64-bit)" arrives here as "python".
+#
+# Two rule kinds:
+#   exact   the whole normalized name must equal the pattern
+#   prefix  the normalized name must start with the pattern; longest wins
+#
+# Prefix rules are how one entry covers a distro's habit of splitting a product
+# across many binary packages (openssh-client, openssh-server, openssh-sftp-server).
+# They are also the main false-positive risk in the table, so each one is kept as
+# specific as it can be while still covering the family.
+#
+# type	pattern	vendor	product
+
+# --- OpenSSH -------------------------------------------------------------
+exact	openssh	openbsd	openssh
+exact	sshd	openbsd	openssh
+exact	ssh	openbsd	openssh
+prefix	openssh-	openbsd	openssh
+
+# --- OpenSSL -------------------------------------------------------------
+# Debian ships the library as libssl<N> and the tools as openssl.
+exact	openssl	openssl	openssl
+prefix	libssl	openssl	openssl
+
+# --- nginx ---------------------------------------------------------------
+exact	nginx	nginx	nginx
+prefix	nginx-	nginx	nginx
+
+# --- Apache httpd --------------------------------------------------------
+exact	apache2	apache	http_server
+exact	httpd	apache	http_server
+exact	apache http server	apache	http_server
+prefix	apache2-	apache	http_server
+
+# --- Python --------------------------------------------------------------
+# "python3.10", "python3-minimal", "libpython3.10" all belong to the same
+# upstream product. The bare "python" exact rule catches the Windows installer's
+# DisplayName once its version token is stripped.
+exact	python	python	python
+exact	python3	python	python
+prefix	python3	python	python
+prefix	libpython	python	python
+
+# --- PostgreSQL ----------------------------------------------------------
+exact	postgresql	postgresql	postgresql
+exact	postgres	postgresql	postgresql
+prefix	postgresql-	postgresql	postgresql
+
+# --- Redis ---------------------------------------------------------------
+exact	redis	redis	redis
+exact	redis-server	redis	redis
+prefix	redis-	redis	redis
+
+# --- curl ----------------------------------------------------------------
+exact	curl	haxx	curl
+prefix	libcurl	haxx	curl
+
+# --- glibc ---------------------------------------------------------------
+exact	libc6	gnu	glibc
+exact	glibc	gnu	glibc
+prefix	libc6-	gnu	glibc
+prefix	glibc-	gnu	glibc
+
+# --- BIND ----------------------------------------------------------------
+exact	bind9	isc	bind
+exact	named	isc	bind
+prefix	bind9-	isc	bind
+
+# --- Samba ---------------------------------------------------------------
+exact	samba	samba	samba
+exact	smbd	samba	samba
+prefix	samba-	samba	samba
+
+# --- sudo ----------------------------------------------------------------
+exact	sudo	sudo_project	sudo
+
+# --- Node.js -------------------------------------------------------------
+exact	nodejs	nodejs	node.js
+exact	node.js	nodejs	node.js
+exact	node	nodejs	node.js
+
+# --- Docker --------------------------------------------------------------
+exact	docker	docker	docker
+exact	docker.io	docker	docker
+exact	docker-ce	docker	docker
+exact	dockerd	docker	docker
+
+# --- Git -----------------------------------------------------------------
+exact	git	git	git
+
+# --- 7-Zip ---------------------------------------------------------------
+exact	7-zip	7-zip	7-zip
+exact	7zip	7-zip	7-zip
+
+# --- VLC -----------------------------------------------------------------
+exact	vlc	videolan	vlc_media_player
+exact	vlc media player	videolan	vlc_media_player
+
+# --- Wireshark -----------------------------------------------------------
+exact	wireshark	wireshark	wireshark
+
+# --- Firefox -------------------------------------------------------------
+# Deliberately NOT a "mozilla" prefix rule: Mozilla ships Thunderbird too, and
+# collapsing both onto firefox would report mail-client CVEs against a browser.
+exact	firefox	mozilla	firefox
+exact	mozilla firefox	mozilla	firefox
+
+# --- VirtualBox ----------------------------------------------------------
+exact	virtualbox	oracle	virtualbox
+exact	oracle vm virtualbox	oracle	virtualbox

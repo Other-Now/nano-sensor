@@ -1,0 +1,74 @@
+# Hand-labelled ground truth for the CVE matcher.
+#
+# Each row is one assertion: given this package at this version, must the
+# matcher report this CVE or not?
+#
+# The expected answers are derived from the affected-version ranges NVD itself
+# publishes (printed straight out of data/cve_index.tsv while this file was
+# written), not from memory. The matcher's job is to implement those ranges
+# faithfully, and this file is what "faithfully" means -- boundary versions,
+# gaps between disjoint ranges, distro packaging suffixes, and library package
+# names all included, because those are where a matcher silently goes wrong.
+#
+# Boundary rows are deliberately over-represented. A matcher that gets the
+# middle of a range right and the endpoint wrong reports a patched host as
+# vulnerable, which is the failure that destroys trust in a scanner.
+#
+# package	version	cve	expected	note
+
+# --- CVE-2014-0160 Heartbleed: openssl [1.0.1, 1.0.1g) -------------------
+openssl	1.0.1f	CVE-2014-0160	hit	inside the range
+openssl	1.0.1g	CVE-2014-0160	miss	exclusive upper bound: this is the FIXED release
+openssl	1.0.0	CVE-2014-0160	miss	below the range start
+openssl	1.1.1f	CVE-2014-0160	miss	a later branch entirely
+
+# --- CVE-2021-3711 OpenSSL SM2 buffer overflow: [1.1.1, 1.1.1l) ----------
+openssl	1.1.1f	CVE-2021-3711	hit	inside the range
+openssl	1.1.1l	CVE-2021-3711	miss	exclusive upper bound
+openssl	1.1.1k	CVE-2021-3711	hit	one letter release below the fix
+openssl	3.0.2	CVE-2021-3711	miss	3.x is out of range
+libssl1.1	1.1.1f-1ubuntu2.16	CVE-2021-3711	hit	library package name + Debian revision
+libssl3	3.0.2-0ubuntu1.10	CVE-2021-3711	miss	mapped by prefix, but 3.x is not affected
+
+# --- CVE-2021-3156 Baron Samedit: sudo [1.8.2,1.8.32) u [1.9.0,1.9.5) u =1.9.5
+sudo	1.8.31	CVE-2021-3156	hit	inside the first range
+sudo	1.8.32	CVE-2021-3156	miss	exclusive upper bound of the first range
+sudo	1.9.4	CVE-2021-3156	hit	inside the second range
+sudo	1.9.5	CVE-2021-3156	hit	matched by the exact-version rule
+sudo	1.9.5p2	CVE-2021-3156	miss	the actual fixed release; p2 must sort ABOVE 1.9.5
+sudo	1.8.1	CVE-2021-3156	miss	below every range
+sudo	1.9.15	CVE-2021-3156	miss	above every range
+
+# --- CVE-2024-6387 regreSSHion: openssh <4.4 u [8.6,9.8] -----------------
+openssh	9.7p1	CVE-2024-6387	hit	inside the second range
+openssh	9.8p1	CVE-2024-6387	miss	the fixed release; p1 must sort above the 9.8 bound
+openssh	4.3	CVE-2024-6387	hit	below 4.4
+openssh	7.4	CVE-2024-6387	miss	in the gap between the two ranges
+openssh-server	1:8.9p1-3ubuntu0.4	CVE-2024-6387	hit	epoch + revision + prefix alias, all at once
+
+# --- CVE-2023-48795 Terrapin: openssh <9.6 -------------------------------
+openssh	8.9p1	CVE-2023-48795	hit	below the bound
+openssh	9.6p1	CVE-2023-48795	miss	the fixed release
+openssh-server	1:8.9p1-3ubuntu0.4	CVE-2023-48795	hit	Debian-packaged name and version
+
+# --- CVE-2021-44790 Apache mod_lua overflow: <2.4.52 ---------------------
+apache2	2.4.51	CVE-2021-44790	hit	below the bound
+apache2	2.4.52	CVE-2021-44790	miss	the fixed release
+httpd	2.4.41	CVE-2021-44790	hit	the RPM-world name for the same product
+
+# --- CVE-2023-25690 Apache request smuggling: [2.4.0, 2.4.55] ------------
+apache2	2.4.54	CVE-2023-25690	hit	inside the range
+apache2	2.4.55	CVE-2023-25690	hit	INCLUSIVE upper bound -- still affected
+apache2	2.4.56	CVE-2023-25690	miss	just above the inclusive bound
+
+# --- CVE-2019-5736 runc container escape: docker <18.09.2 ----------------
+docker	18.09.1	CVE-2019-5736	hit	below the bound
+docker	18.09.2	CVE-2019-5736	miss	the fixed release
+docker.io	20.10.7	CVE-2019-5736	miss	Debian package name, modern version
+
+# --- CVE-2023-44487 HTTP/2 Rapid Reset: node [18.0.0,18.18.2) u [20.0.0,20.8.1)
+nodejs	18.18.0	CVE-2023-44487	hit	inside the 18.x range
+nodejs	18.18.2	CVE-2023-44487	miss	the fixed 18.x release
+nodejs	20.8.0	CVE-2023-44487	hit	inside the 20.x range
+nodejs	20.8.1	CVE-2023-44487	miss	the fixed 20.x release
+nodejs	19.0.0	CVE-2023-44487	miss	in the gap BETWEEN two disjoint ranges

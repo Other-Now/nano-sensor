@@ -24,6 +24,8 @@ set(NS_SOURCES
     src/json.cpp
     src/log.cpp
     src/inventory.cpp
+    src/vercmp.cpp
+    src/cve.cpp
 )
 
 # Exactly one platform backend is compiled. The other is not #ifdef'd out from
@@ -80,6 +82,8 @@ enable_testing()
 add_executable(ns_tests
     tests/main.cpp
     tests/test_json.cpp
+    tests/test_vercmp.cpp
+    tests/test_cve.cpp
 )
 target_link_libraries(ns_tests PRIVATE ns_core)
 target_include_directories(ns_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
