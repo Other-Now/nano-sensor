@@ -6,9 +6,42 @@ CVE data, and reports over mutual TLS without losing anything when the network
 goes away.
 
 One codebase, two OS backends — Linux (`/proc`, `getifaddrs`, dpkg/rpm) and
-Windows (Win32, IP Helper, registry). No third-party C++ dependencies.
+Windows (Win32, IP Helper, registry). No third-party C++ dependencies in the
+agent (GoogleTest for the tests).
 
 Build plan and staged milestones: [PLAN.md](PLAN.md).
+
+---
+
+## Windows: service + client, SQL Server, crash dumps
+
+On Windows, the agent runs as a **least-privilege service** with a
+**separate console client**, stores inventory and findings in **SQL Server**,
+and writes **minidumps** that were used to debug real and planted bugs.
+
+| | what | measured / proven |
+|---|---|---|
+| **multi-process** | service (`nano-sensor run`) ↔ `nsctl.exe` over a named pipe, one JSON message each way | both run as separate processes; `nsctl` times out on a wedged service instead of hanging |
+| **least privilege** | virtual account `NT SERVICE\nano-sensor`, one privilege (`SeChangeNotify`), service SID | `status` → `"user":"NT SERVICE\\nano-sensor","elevated":false,"privileges_enabled":1` |
+| **pipe ACL** | SDDL: SYSTEM + elevated Admins + owner; network denied; remote clients rejected; first-instance anti-squatting | unelevated admin → **error 5, access denied**; restricted-token test + Everyone-ACE control |
+| **SQL Server** | ODBC, every value a bound parameter, one transaction per scan; agent login has no DELETE / DDL | `DROP TABLE` / `DELETE` / `CREATE TABLE` as the service login → all denied |
+| **index** | `IX_findings_cve` on 1.04M findings rows | **191 ms → 2.25 ms median (85×), 10,950 → 25 logical reads (438×)**; costs +76% pages, −20% insert rate |
+| **crash dumps** | `MiniDumpWriteDump` on SEH crash, `std::terminate`, purecall, invalid parameter, and from a hang watchdog | three planted bugs (use-after-free, deadlock, worker-thread crash) diagnosed from dumps alone in WinDbg/cdb |
+| **tests** | GoogleTest, 53 tests (39 ported + 14 new: pipe ACL, SQL); per-test CRT debug-heap leak check | 53/53 pass; **0 of 53 tests leak** |
+| **memory** | 300 back-to-back scan cycles (inventory + CVE match + SQL write + pipe) | private bytes plateau at ~33.9 MB by cycle 100, flat to 300; handles 269–272 |
+
+Details, with raw evidence:
+
+- [docs/SERVICE.md](docs/SERVICE.md): the process split, every lock-down layer
+  and its proof, and **three bugs only the real install exposed**. These were
+  a 163 s hang from `AUTO_CLOSE`, a start failure that only happened under the
+  SCM, and a pipe-instance race.
+- [docs/SQL_SERVER.md](docs/SQL_SERVER.md): schema, parameterization, and the
+  before/after index measurement, with plans.
+- [docs/DEBUGGING.md](docs/DEBUGGING.md): the dump writer, and the three
+  planted bugs worked from the dump: the `0xDD` vtable, mutex owner thread
+  ids, and the per-thread `set_terminate` gap that left *no* dump in release
+  builds.
 
 ---
 
@@ -157,8 +190,24 @@ cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config RelWithDebInfo
 ```
 
-39 unit tests, no test framework — see [tests/test_util.hpp](tests/test_util.hpp)
-for why a 70-line harness beat vendoring one onto two platforms.
+53 GoogleTest tests (fetched at configure time, pinned by SHA-256). The
+original 39 ran on a 70-line home-grown harness. They moved to GoogleTest
+when the Windows work added fixtures (`DbTest`), skips (no SQL Server in CI)
+and a leak-check listener, which would have meant rebuilding a framework.
+The Debug build of `ns_tests` runs the suite twice and fails if any passing
+test leaves `_NORMAL_BLOCK` bytes on the CRT debug heap.
+
+```console
+# Windows extras
+set NS_TEST_DB=Driver={ODBC Driver 18 for SQL Server};Server=.\SQLEXPRESS;Database=nanosensor;Trusted_Connection=yes;Encrypt=no
+sqlcmd -S .\SQLEXPRESS -E -C -i tools\db\schema.sql      # once
+build\bin\Debug\ns_tests.exe                             # + leak check
+cmake -S . -B build-asan -A x64 -DNS_ASAN=ON             # AddressSanitizer build
+powershell -File tools\repro_fault.ps1 -Fault uaf        # planted bugs -> dumps
+powershell -File tools\db\bench_index.ps1                # index before/after
+powershell -File tools\mem_soak.ps1                      # 300-cycle leak soak
+powershell -File tools\install_service.ps1              # elevated: real service
+```
 
 Refresh the CVE index (needs network, takes a few minutes, caches per product):
 
@@ -253,12 +302,19 @@ Recorded so these read as decisions rather than omissions.
 ```
 include/ns/     inventory.hpp  platform.hpp  cve.hpp  vercmp.hpp
                 spool.hpp      transport.hpp service.hpp  json.hpp  log.hpp
+                agent.hpp  ipc.hpp  db.hpp  crashdump.hpp  procinfo.hpp
 src/platform/   platform_linux.cpp / platform_windows.cpp
 src/            transport_openssl.cpp / transport_winhttp.cpp / transport_none.cpp
                 service_linux.cpp / service_windows.cpp
+                agent.cpp (scan worker, pipe handlers, watchdog, planted faults)
+                ipc_windows.cpp  db_odbc.cpp  crashdump_windows.cpp  nsctl.cpp
+                windows_only_stubs.cpp (Linux builds of the Windows-only parts)
+docs/           SERVICE.md  SQL_SERVER.md  DEBUGGING.md  evidence/
 data/           cve_index.tsv  cpe_aliases.tsv  ground_truth.tsv
 tools/          nvd_build_index.py  eval_cve_match.py  chaos_test.py
                 verify_inventory.py  mock_cloud.py  make_test_certs.sh
+                install_service.ps1  repro_fault.ps1  analyze_dump.ps1
+                mem_soak.ps1  dbbench.cpp  db/{schema.sql,bench_index.ps1}
 deploy/         nano-sensor.service  Dockerfile  k8s/daemonset.yaml
 ```
 

@@ -1,0 +1,8 @@
+﻿scans sampled           : 300 (last scan #300)
+db writes failed        : 0
+private bytes @scan 10  : 3,36,69,120
+private bytes @end      : 3,39,72,224
+private bytes max (10+) : 3,44,96,512
+growth 10 -> end        : 3,03,104 bytes (1.02 KB/scan)
+handles @10 / end / max : 269 / 272 / 274
+threads @10 / end       : 12 / 11

@@ -134,11 +134,18 @@ bool install(const std::string& exe_path, const std::string& arguments,
     const std::string command = "\"" + exe_path + "\"" +
                                 (arguments.empty() ? "" : " " + arguments);
 
+    // Runs as the per-service virtual account NT SERVICE\nano-sensor, not
+    // LocalSystem. It has no password to manage, is a member of no privileged
+    // group, and has a SID of its own -- so the pipe DACL, the state
+    // directory ACL and the SQL Server login can each name exactly this
+    // service and nothing else. What it loses: it cannot open other users'
+    // processes, so process exe paths and socket owners for SYSTEM processes
+    // come back empty. That shortfall is reported, not hidden (see README).
     SC_HANDLE svc = CreateServiceW(
         manager, kServiceNameW, L"nano-sensor security sensor",
         SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS, SERVICE_AUTO_START,
         SERVICE_ERROR_NORMAL, widen(command).c_str(),
-        nullptr, nullptr, nullptr, nullptr, nullptr);
+        nullptr, nullptr, nullptr, L"NT SERVICE\\nano-sensor", nullptr);
 
     if (!svc) {
         const DWORD err = GetLastError();
@@ -161,6 +168,25 @@ bool install(const std::string& exe_path, const std::string& arguments,
     fa.cActions = 3;
     fa.lpsaActions = actions;
     ChangeServiceConfig2W(svc, SERVICE_CONFIG_FAILURE_ACTIONS, &fa);
+
+    // Strip every privilege but one. The SCM removes anything not listed here
+    // from the service's token before it starts, so even a code-execution bug
+    // inside the agent cannot, say, SeImpersonate its way to SYSTEM.
+    // SeChangeNotifyPrivilege (bypass traverse checking) is the floor: without
+    // it, opening a file means having rights on every parent directory.
+    wchar_t privs[] = L"SeChangeNotifyPrivilege\0";
+    SERVICE_REQUIRED_PRIVILEGES_INFOW rp{privs};
+    ChangeServiceConfig2W(svc, SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO, &rp);
+
+    // Unrestricted service SID: NT SERVICE\nano-sensor appears in the token
+    // and can be granted access in ACLs.
+    SERVICE_SID_INFO sid{SERVICE_SID_TYPE_UNRESTRICTED};
+    ChangeServiceConfig2W(svc, SERVICE_CONFIG_SERVICE_SID_INFO, &sid);
+
+    wchar_t desc[] = L"Asset inventory and CVE matching. Control: nsctl.exe over "
+                     L"\\\\.\\pipe\\nano-sensor (Administrators only).";
+    SERVICE_DESCRIPTIONW sd{desc};
+    ChangeServiceConfig2W(svc, SERVICE_CONFIG_DESCRIPTION, &sd);
 
     CloseServiceHandle(svc);
     CloseServiceHandle(manager);

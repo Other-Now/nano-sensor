@@ -1,3 +1,5 @@
+#include "ns/agent.hpp"
+#include "ns/crashdump.hpp"
 #include "ns/cve.hpp"
 #include "ns/inventory.hpp"
 #include "ns/json.hpp"
@@ -11,6 +13,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <random>
@@ -22,6 +25,8 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <io.h>
+#include <share.h>
 #endif
 
 namespace {
@@ -45,6 +50,14 @@ struct Options {
     int synthetic = 0;
     bool drain_only = false;
     int interval_s = 300;
+
+    // run (the Windows service)
+    std::string db;          // ODBC connection string; empty = no SQL Server
+    std::string state_dir;   // dumps/ go here; empty = no crash dumps
+    std::string log_file;
+    std::string pipe = ns::ipc::kDefaultPipe;
+    std::string fault = "none";
+    int hang_timeout_s = 120;
 };
 
 int usage(int rc) {
@@ -84,6 +97,16 @@ int usage(int rc) {
         "  --interval N        seconds between cycles in `run`  (default: 300)\n"
         "  --drain-only        send what is spooled; collect nothing new\n"
         "  --synthetic N       spool N synthetic records; used by the chaos test\n"
+        "\n"
+        "run options (Windows service; --url is optional for `run`):\n"
+        "  --db CONN           ODBC connection string for SQL Server\n"
+        "  --state-dir DIR     write crash/hang minidumps to DIR\\dumps\n"
+        "  --log-file PATH     append logs here instead of stderr\n"
+        "  --pipe NAME         control pipe   (default: \\\\.\\pipe\\nano-sensor)\n"
+        "  --hang-timeout N    seconds before a stuck scan/request is dumped and\n"
+        "                      the process exits for the SCM to restart (default 120)\n"
+        "  --inject-fault F    uaf | deadlock | worker-crash -- re-enable a planted\n"
+        "                      bug; see docs/DEBUGGING.md\n"
         "\n"
         "Command output goes to stdout; structured logs go to stderr, so\n"
         "`nano-sensor inventory > host.json` stays a clean JSON file.\n",
@@ -260,9 +283,12 @@ struct Reporter {
             return true;
         }
 
-        const ns::Inventory inv = ns::collect_inventory();
+        return append_inventory(ns::collect_inventory(), err);
+    }
+
+    bool append_inventory(const ns::Inventory& inv, std::string& err) {
         const std::string id = inv.host.hostname + "-" + run_tag + "-" +
-                               std::to_string(now) + "-inventory";
+                               std::to_string(ns::unix_time_ms()) + "-inventory";
         return spool.append(make_record(id, "inventory", ns::to_json(inv, false)), err);
     }
 
@@ -385,43 +411,109 @@ int cmd_report(const Options& opt) {
     return (d.gave_up && d.sent == 0) ? 1 : 0;
 }
 
+// The long-running agent: under the SCM it is the Windows service; from a
+// console it runs in the foreground. Scans, SQL Server and the control pipe
+// live in ns::Agent; telemetry, when --url is given, hangs off its
+// on_inventory hook so the spool's zero-loss guarantees are unchanged.
 int cmd_run(const Options& opt) {
-    if (opt.url.empty()) {
-        std::fprintf(stderr, "run needs --url\n");
+    if (!opt.log_file.empty()) {
+        std::error_code ec;
+        const auto parent = std::filesystem::path(opt.log_file).parent_path();
+        if (!parent.empty()) std::filesystem::create_directories(parent, ec);
+        // stderr itself, not just the logger: the crash handler writes its
+        // last words to stderr, and under the SCM stderr goes nowhere.
+#if defined(_WIN32)
+        // _SH_DENYNO: freopen_s opens with _SH_SECURE, which denies other
+        // processes read access while the service holds the file -- so an
+        // admin could not even copy the live log (Copy-Item: "being used by
+        // another process"). Open shared, then point fd 2 at it.
+        //
+        // Under the SCM there is no stderr at all: the CRT sets
+        // _fileno(stderr) to -2, and _dup2 onto -2 is an invalid-parameter
+        // fast-fail -- before StartServiceCtrlDispatcher, so the SCM only
+        // reports "did not respond in a timely fashion". Every console test
+        // passed. Give stderr a real descriptor (NUL) first, then redirect it.
+        FILE* log = _fsopen(opt.log_file.c_str(), "a", _SH_DENYNO);
+        if (_fileno(stderr) < 0) {
+            FILE* nul = nullptr;
+            freopen_s(&nul, "NUL", "w", stderr);
+        }
+        const bool log_ok =
+            log && _fileno(stderr) >= 0 && _dup2(_fileno(log), _fileno(stderr)) == 0;
+#else
+        const bool log_ok = std::freopen(opt.log_file.c_str(), "a", stderr) != nullptr;
+#endif
+        if (!log_ok) {
+            std::fprintf(stdout, "cannot open log file %s\n", opt.log_file.c_str());
+            return 1;
+        }
+        std::setvbuf(stderr, nullptr, _IONBF, 0);
+    }
+    if (!opt.state_dir.empty()) {
+        std::error_code ec;
+        auto dumps = std::filesystem::path(opt.state_dir) / "dumps";
+        std::filesystem::create_directories(dumps, ec);
+        if (!ns::crashdump::install(dumps.make_preferred().string())) {
+            ns::log_warn("crash dumps not enabled on this platform", {});
+        }
+    }
+
+    ns::AgentConfig cfg;
+    cfg.index_path = opt.index_path;
+    cfg.alias_path = opt.alias_path;
+    cfg.db_connection = opt.db;
+    cfg.pipe_name = opt.pipe;
+    cfg.interval_s = opt.interval_s;
+    cfg.hang_timeout_s = opt.hang_timeout_s;
+    if (!ns::parse_fault(opt.fault, cfg.fault)) {
+        std::fprintf(stderr, "unknown fault: %s\n", opt.fault.c_str());
         return 2;
     }
 
-    return ns::service::run([&]() -> int {
-        Reporter r;
+    std::unique_ptr<Reporter> reporter;
+    if (!opt.url.empty()) {
+        reporter = std::make_unique<Reporter>();
         std::string err;
-        if (!r.init(opt, err)) {
+        if (!reporter->init(opt, err)) {
             ns::log_error("cannot start reporter", {{"error", err}});
             return 1;
         }
-
-        ns::log_info("agent started",
-                     {{"interval_s", std::to_string(opt.interval_s)},
-                      {"backend", r.transport->backend_name()},
-                      {"spool", opt.spool_dir}});
-
-        while (!ns::service::stop_requested()) {
-            if (!r.collect(err)) {
-                ns::log_error("collection failed", {{"error", err}});
+        cfg.on_inventory = [&reporter](const ns::Inventory& inv) {
+            std::string err;
+            if (!reporter->append_inventory(inv, err)) {
+                ns::log_error("spool append failed", {{"error", err}});
             }
-            const auto d = r.drain();
-            const auto st = r.spool.stats();
-            ns::log_info("cycle complete",
-                         {{"sent", std::to_string(d.sent)},
-                          {"pending", std::to_string(st.pending)},
-                          {"dropped", std::to_string(st.dropped)}});
+            const auto d = reporter->drain();
+            ns::log_info("telemetry cycle", {{"sent", std::to_string(d.sent)},
+                                             {"pending", std::to_string(reporter->spool.stats().pending)}});
+        };
+    }
 
-            Reporter::sleep_interruptible(
-                static_cast<std::int64_t>(opt.interval_s) * 1000);
+    return ns::service::run([&]() -> int {
+        ns::Agent agent(cfg);
+        std::string err;
+        if (!agent.start(err)) {
+            ns::log_error("cannot start agent", {{"error", err}});
+            return 1;
         }
-
+        while (!ns::service::stop_requested()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+        agent.stop();
         ns::log_info("agent stopped cleanly", {});
         return 0;
     });
+}
+
+// Quotes one argument for a Windows command line (the SCM's ImagePath).
+std::string quote_arg(const std::string& s) {
+    if (!s.empty() && s.find_first_of(" \t\"") == std::string::npos) return s;
+    std::string out = "\"";
+    for (char c : s) {
+        if (c == '"') out += '\\';
+        out += c;
+    }
+    return out + "\"";
 }
 
 int cmd_service(const Options& opt, const std::string& action) {
@@ -433,11 +525,27 @@ int cmd_service(const Options& opt, const std::string& action) {
         GetModuleFileNameA(nullptr, buf, sizeof(buf) - 1);
         exe = buf;
 #endif
+        // The SCM starts services in %SystemRoot%\System32, so every path the
+        // service will open is made absolute here, at install time.
+        const auto abs = [](const std::string& p) {
+            return std::filesystem::absolute(p).string();
+        };
         std::string args = "run";
-        if (!opt.url.empty()) args += " --url " + opt.url;
-        args += " --spool " + opt.spool_dir;
-        if (!opt.pin_file.empty()) args += " --pin-file " + opt.pin_file;
-        if (!opt.client_cert.empty()) args += " --client-cert " + opt.client_cert;
+        args += " --index " + quote_arg(abs(opt.index_path));
+        args += " --aliases " + quote_arg(abs(opt.alias_path));
+        args += " --interval " + std::to_string(opt.interval_s);
+        if (!opt.state_dir.empty()) {
+            args += " --state-dir " + quote_arg(abs(opt.state_dir));
+            args += " --log-file " + quote_arg(abs(opt.state_dir + "/agent.log"));
+        }
+        if (!opt.db.empty()) args += " --db " + quote_arg(opt.db);
+        if (!opt.url.empty()) {
+            args += " --url " + quote_arg(opt.url);
+            args += " --spool " + quote_arg(abs(opt.spool_dir));
+            if (!opt.pin_file.empty()) args += " --pin-file " + quote_arg(abs(opt.pin_file));
+            if (!opt.client_cert.empty())
+                args += " --client-cert " + quote_arg(abs(opt.client_cert));
+        }
 
         if (!ns::service::install(exe, args, err)) {
             std::fprintf(stderr, "install failed: %s\n", err.c_str());
@@ -547,6 +655,30 @@ int main(int argc, char** argv) {
             opt.interval_s = std::atoi(v);
         } else if (arg == "--drain-only") {
             opt.drain_only = true;
+        } else if (arg == "--db") {
+            const char* v = need_value(i);
+            if (!v) return 2;
+            opt.db = v;
+        } else if (arg == "--state-dir") {
+            const char* v = need_value(i);
+            if (!v) return 2;
+            opt.state_dir = v;
+        } else if (arg == "--log-file") {
+            const char* v = need_value(i);
+            if (!v) return 2;
+            opt.log_file = v;
+        } else if (arg == "--pipe") {
+            const char* v = need_value(i);
+            if (!v) return 2;
+            opt.pipe = v;
+        } else if (arg == "--hang-timeout") {
+            const char* v = need_value(i);
+            if (!v) return 2;
+            opt.hang_timeout_s = std::atoi(v);
+        } else if (arg == "--inject-fault") {
+            const char* v = need_value(i);
+            if (!v) return 2;
+            opt.fault = v;
         } else if (arg == "-h" || arg == "--help") {
             return usage(0);
         } else {

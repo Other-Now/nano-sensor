@@ -1,0 +1,60 @@
+﻿nano-sensor service evidence, 2026-10-17T16:00:42
+
+=== copy binaries and data
+copied to C:\Program Files\nano-sensor
+
+=== register service
+installed the nano-sensor service
+
+=== state directory ACL
+C:\ProgramData\nano-sensor NT SERVICE\nano-sensor:(OI)(CI)(M)
+                           BUILTIN\Administrators:(OI)(CI)(F)
+                           NT AUTHORITY\SYSTEM:(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files
+
+=== SQL Server login and grants
+Changed database context to 'nanosensor'.
+granted NT SERVICE\nano-sensor: SELECT/INSERT (+UPDATE on hosts)
+
+=== start
+status: Running
+
+=== sc qc nano-sensor
+[SC] QueryServiceConfig SUCCESS
+
+SERVICE_NAME: nano-sensor
+        TYPE               : 10  WIN32_OWN_PROCESS 
+        START_TYPE         : 2   AUTO_START
+        ERROR_CONTROL      : 1   NORMAL
+        BINARY_PATH_NAME   : "C:\Program Files\nano-sensor\nano-sensor.exe" run --index "C:\Program Files\nano-sensor\data\cve_index.tsv" --aliases "C:\Program Files\nano-sensor\data\cpe_aliases.tsv" --interval 300 --state-dir C:\ProgramData\nano-sensor --log-file C:\ProgramData\nano-sensor\agent.log --db "Driver={ODBC Driver 18 for SQL Server};Server=.\SQLEXPRESS;Database=nanosensor;Trusted_Connection=yes;Encrypt=no"
+        LOAD_ORDER_GROUP   : 
+        TAG                : 0
+        DISPLAY_NAME       : nano-sensor security sensor
+        DEPENDENCIES       : 
+        SERVICE_START_NAME : NT SERVICE\nano-sensor
+
+=== sc qprivs nano-sensor
+[SC] QueryServiceConfig2 SUCCESS
+
+SERVICE_NAME: nano-sensor
+        PRIVILEGES       : SeChangeNotifyPrivilege
+
+=== sc qsidtype nano-sensor
+[SC] QueryServiceConfig2 SUCCESS
+
+SERVICE_NAME: nano-sensor
+SERVICE_SID_TYPE:  UNRESTRICTED
+
+=== nsctl status (elevated caller)
+{"service":"nano-sensor","version":"0.1.0","fault":"none","process":{"pid":17560,"user":"NT SERVICE\\nano-sensor","elevated":false,"privileges_enabled":1,"private_bytes":33079296,"working_set":41492480,"peak_working_set":41607168,"handles":274,"threads":14},"pipe_requests_served":0,"dumps_written":0,"uptime_s":7,"hostname":"MANPRIT_01","scans_completed":1,"last_scan":{"ok":true,"scan_id":1614,"packages":37,"findings":10,"critical":0,"worst":"CVE-2026-7210","duration_ms":63,"finished_unix_ms":1792233044208},"database":{"configured":true,"state":"connected"}}
+
+=== agent log (last lines)
+{"ts":"2026-10-17T10:25:09.311Z","level":"info","msg":"scan complete","packages":"37","findings":"10","worst":"CVE-2026-7210","scan_id":"1402","duration_ms":"83","db_error":""}
+{"ts":"2026-10-17T10:26:01.467Z","level":"info","msg":"agent stopped cleanly"}
+{"ts":"2026-10-17T10:30:44.144Z","level":"info","msg":"agent started","pipe":"\\\\.\\pipe\\nano-sensor","interval_s":"300","db":"on","fault":"none"}
+{"ts":"2026-10-17T10:30:44.178Z","level":"info","msg":"inventory collected","platform":"windows","warnings":"1"}
+{"ts":"2026-10-17T10:30:44.208Z","level":"info","msg":"scan complete","packages":"37","findings":"10","worst":"CVE-2026-7210","scan_id":"1614","duration_ms":"63","db_error":""}
+{"ts":"2026-10-17T10:30:51.999Z","level":"info","msg":"pipe request","cmd":"status","client_pid":"16296","client_user":"MANPRIT_01\\chiku"}
+
+evidence written to D:\self_projects\nano-sensor\build\service-evidence.txt

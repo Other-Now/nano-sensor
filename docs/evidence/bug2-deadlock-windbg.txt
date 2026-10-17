@@ -1,0 +1,40 @@
+﻿0:000> cdb: Reading initial command '~10s; kn 9; .frame 6; dv /t /V; .frame 7; dx &this->db_mu; dx &this->state_mu; ~11s; kn 9; .frame 6; dv /t /V; q'
+ntdll!NtWaitForAlertByThreadId+0x14:
+00007ff8`4eb659c4 c3              ret
+ # Child-SP          RetAddr               Call Site
+00 00000024`e90ff358 00007ff8`4ea59cfb     ntdll!NtWaitForAlertByThreadId+0x14
+01 00000024`e90ff360 00007ff8`4ea44d1d     ntdll!RtlpAcquireSRWLockExclusiveContended+0x14b
+02 00000024`e90ff3e0 00007fff`dd822a23     ntdll!RtlAcquireSRWLockExclusive+0x4d
+03 00000024`e90ff410 00007fff`dd822785     MSVCP140D!mtx_do_lock+0xb3 [D:\a\_work\1\s\src\vctools\crt\github\stl\src\mutex.cpp @ 93]
+04 00000024`e90ff470 00007ff6`1092f0fc     MSVCP140D!_Mtx_lock+0x15 [D:\a\_work\1\s\src\vctools\crt\github\stl\src\mutex.cpp @ 166]
+05 00000024`e90ff4a0 00007ff6`1092a559     nano_sensor!std::_Mutex_base::lock+0x1c [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\mutex @ 52]
+06 00000024`e90ff4d0 00007ff6`1092ffcd     nano_sensor!std::lock_guard<std::mutex>::lock_guard<std::mutex>+0x29 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\mutex @ 445]
+07 00000024`e90ff500 00007ff6`10930adf     nano_sensor!ns::Agent::Impl::run_scan+0x25d [D:\self_projects\nano-sensor\src\agent.cpp @ 335]
+08 00000024`e90ffd50 00007ff6`10920942     nano_sensor!ns::Agent::Impl::worker_loop+0xdf [D:\self_projects\nano-sensor\src\agent.cpp @ 280]
+06 00000024`e90ff4d0 00007ff6`1092ffcd     nano_sensor!std::lock_guard<std::mutex>::lock_guard<std::mutex>+0x29 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\mutex @ 445]
+00000024`e90ff500 @rsp+0x0030       class std::lock_guard<std::mutex> * this = 0x00000024`e90ff978 locked
+00000024`e90ff508 @rsp+0x0038       class std::mutex * _Mtx = 0x0000014c`2a7e6c58 locked
+07 00000024`e90ff500 00007ff6`10930adf     nano_sensor!ns::Agent::Impl::run_scan+0x25d [D:\self_projects\nano-sensor\src\agent.cpp @ 335]
+&this->db_mu     : 0x14c2a7e6c00 : locked [Type: std::mutex *]
+    [<Raw View>]     [Type: std::mutex]
+    [locking_thread_id] : 7752 [Type: long]
+    [ownership_levels] : 1 [Type: int]
+&this->state_mu  : 0x14c2a7e6c58 : locked [Type: std::mutex *]
+    [<Raw View>]     [Type: std::mutex]
+    [locking_thread_id] : 4796 [Type: long]
+    [ownership_levels] : 1 [Type: int]
+ntdll!NtWaitForAlertByThreadId+0x14:
+00007ff8`4eb659c4 c3              ret
+ # Child-SP          RetAddr               Call Site
+00 00000024`e91fd9d8 00007ff8`4ea59cfb     ntdll!NtWaitForAlertByThreadId+0x14
+01 00000024`e91fd9e0 00007ff8`4ea44d1d     ntdll!RtlpAcquireSRWLockExclusiveContended+0x14b
+02 00000024`e91fda60 00007fff`dd822a23     ntdll!RtlAcquireSRWLockExclusive+0x4d
+03 00000024`e91fda90 00007fff`dd822785     MSVCP140D!mtx_do_lock+0xb3 [D:\a\_work\1\s\src\vctools\crt\github\stl\src\mutex.cpp @ 93]
+04 00000024`e91fdaf0 00007ff6`1092f0fc     MSVCP140D!_Mtx_lock+0x15 [D:\a\_work\1\s\src\vctools\crt\github\stl\src\mutex.cpp @ 166]
+05 00000024`e91fdb20 00007ff6`1092a559     nano_sensor!std::_Mutex_base::lock+0x1c [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\mutex @ 52]
+06 00000024`e91fdb50 00007ff6`1092e9d3     nano_sensor!std::lock_guard<std::mutex>::lock_guard<std::mutex>+0x29 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\mutex @ 445]
+07 00000024`e91fdb80 00007ff6`1091bab4     nano_sensor!ns::Agent::Impl::handle_status+0x9a3 [D:\self_projects\nano-sensor\src\agent.cpp @ 417]
+08 00000024`e91fe1f0 00007ff6`109208c7     nano_sensor!ns::Agent::handle+0x324 [D:\self_projects\nano-sensor\src\agent.cpp @ 595]
+06 00000024`e91fdb50 00007ff6`1092e9d3     nano_sensor!std::lock_guard<std::mutex>::lock_guard<std::mutex>+0x29 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\mutex @ 445]
+00000024`e91fdb80 @rsp+0x0030       class std::lock_guard<std::mutex> * this = 0x00000024`e91fdcb8 locked
+00000024`e91fdb88 @rsp+0x0038       class std::mutex * _Mtx = 0x0000014c`2a7e6c00 locked

@@ -119,6 +119,17 @@ jobs:
           bash tools/make_test_certs.sh build/testpki
           python tools/chaos_test.py --binary "$NS_BIN"
 
+      # docs/DEBUGGING.md, bug 3: an uncaught C++ exception on a worker thread
+      # used to fast-fail with no dump at all. This asserts the dump exists.
+      # No SQL Server on the runner; the agent logs that and carries on.
+      - name: Worker-thread crash leaves a minidump
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools/repro_fault.ps1 -Fault worker-crash -Config RelWithDebInfo
+          $d = Get-ChildItem build/faults/worker-crash/dumps/*-terminate.dmp -ErrorAction SilentlyContinue
+          if (-not $d) { throw "no terminate dump was written" }
+          "dump: $($d.FullName) ($($d.Length) bytes)"
+
   docker:
     runs-on: ubuntu-latest
     steps:

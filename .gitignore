@@ -11,3 +11,4 @@ __pycache__/
 # raw NVD feed does not).
 tools/nvd/raw/
 *.sqlite-journal
+build-*/

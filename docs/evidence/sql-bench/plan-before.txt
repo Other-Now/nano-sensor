@@ -1,0 +1,15 @@
+﻿StmtText
+--------
+SELECT h.hostname, f.cve_id, f.package_name, f.package_version, f.cvss, f.severity, f.exposed, f.scan_id FROM dbo.findings f JOIN dbo.hosts h ON h.latest_scan_id = f.scan_id WHERE f.cve_id = 'CVE-2015-4000' ORDER BY h.hostname;
+
+(1 row affected)
+StmtText
+--------
+  |--Sort(ORDER BY:([h].[hostname] ASC))
+       |--Merge Join(Inner Join, MANY-TO-MANY MERGE:([f].[scan_id])=([h].[latest_scan_id]), RESIDUAL:([nanosensor].[dbo].[findings].[scan_id] as [f].[scan_id]=[nanosensor].[dbo].[hosts].[latest_scan_id] as [h].[latest_scan_id]))
+            |--Sort(ORDER BY:([f].[scan_id] ASC))
+            |    |--Clustered Index Scan(OBJECT:([nanosensor].[dbo].[findings].[PK_findings] AS [f]), WHERE:([nanosensor].[dbo].[findings].[cve_id] as [f].[cve_id]='CVE-2015-4000'))
+            |--Sort(ORDER BY:([h].[latest_scan_id] ASC))
+                 |--Clustered Index Scan(OBJECT:([nanosensor].[dbo].[hosts].[PK_hosts] AS [h]))
+
+(6 rows affected)

@@ -1,0 +1,35 @@
+Real hang of the installed service (not a planted bug), first install.
+Dump: nano-sensor-11632-1792232044696-hang.dmp, written by the hang watchdog
+after "stuck":"pipe:status" exceeded 120 s. cdb `~*kn 12`, thread 10 shown.
+
+Captured at the time with the matching RelWithDebInfo PDB. Re-running the same
+command later shows `nano_sensor+0x860fc` with no symbols: the build directory
+had been rebuilt and the PDB no longer matched the binary in the dump. That is
+the case for archiving every shipped build's PDBs (e.g. symstore.exe into a
+symbol server) instead of keeping only "the current build".
+
+  10  Id: 2d70.23dc Suspend: 0 Teb: 00000059`4cb65000 Unfrozen
+00 00000059`4d9fe058 00007ff8`4c12be9f     ntdll!NtWaitForSingleObject+0x14
+01 00000059`4d9fe060 00007fff`ceca24ff     KERNELBASE!WaitForSingleObjectEx+0xaf
+02 00000059`4d9fe100 00007fff`cec977f5     msodbcsql18!Np::ReadSync+0x27f
+03 00000059`4d9fe170 00007fff`cece5da2     msodbcsql18!SNIReadSync+0xad
+04 00000059`4d9fe1b0 00007fff`cecd4642     msodbcsql18!BATCHCTX::SNIRead+0x92
+05 00000059`4d9fe200 00007fff`ceccb8ca     msodbcsql18!BATCHCTX::ReadPacket+0x6a
+06 00000059`4d9fe2a0 00007fff`cecd51ea     msodbcsql18!BATCHCTX::GetBytes+0x29a
+07 00000059`4d9fe300 00007fff`ced3f169     msodbcsql18!BATCHCTX::Run+0x1a6
+08 00000059`4d9fe370 00007fff`ced3a959     msodbcsql18!ProcessTDSStream+0x361
+09 00000059`4d9fe3f0 00007fff`ced4533f     msodbcsql18!PostExecProcess+0x14d
+0a 00000059`4d9fe440 00007fff`ced371bf     msodbcsql18!SQLExecDirectW_internal+0xfe7
+0b 00000059`4d9fe600 00007fff`dc9dd838     msodbcsql18!ConditionalExecute+0x5b
+0c 00000059`4d9fe690 00007fff`dc9dcc78     odbc32!SQLExecDirectCover+0x448
+0d 00000059`4d9fe6f0 00007ff6`b95260fc     odbc32!SQLExecDirectW+0x158
+0e 00000059`4d9fe780 00007ff6`b94d9e40     nano_sensor!ns::Db::scalar+0x9c [src\db_odbc.cpp @ 519]
+0f 00000059`4d9fe860 00007ff6`b94d734e     nano_sensor!ns::Agent::Impl::handle_status+0x620 [src\agent.cpp @ 417]
+10 00000059`4d9fe9d0 00007ff6`b94d4fc2     nano_sensor!ns::Agent::handle+0x40e [src\agent.cpp @ 590]
+
+Server side at the same time (sys.dm_exec_requests):
+session_id status  command wait_type             blocking_session_id login_name             text
+58         running SELECT  MEMORY_ALLOCATION_EXT 0                   NT SERVICE\nano-sensor SELECT COUNT_BIG(*) FROM dbo.findings
+
+Timed by hand afterwards: first COUNT_BIG(*) 163.2 s, immediate repeat 0.40 s.
+sys.databases: nanosensor is_auto_close_on = 1 (the Express default).

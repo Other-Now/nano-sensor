@@ -1,0 +1,43 @@
+﻿This dump file has an exception of interest stored in it.
+The stored exception information can be accessed via .ecxr
+(1808.2230): Unknown exception - code e0000001 (first/second chance not available)
+For analysis of this file, run !analyze -v
+ntdll!NtGetContextThread+0x14:
+00007ff8`4eb63ca4 c3              ret
+0:010> cdb: Reading initial command '.ecxr; kn 20; q'
+rax=0000000000000000 rbx=0000000000000000 rcx=0000000000000000
+rdx=0000000000000000 rsi=0000000000000001 rdi=00000000e0000001
+rip=00007ff84c1d408a rsp=000000a4dbefd5a0 rbp=0000000000000000
+ r8=0000000000000000  r9=0000000000000000 r10=0000000000000000
+r11=0000000000000000 r12=00007ff610a4f158 r13=000000a4dbefe2c0
+r14=000000a4dbefdb80 r15=00007ff610926a00
+iopl=0         nv up ei pl nz na po nc
+cs=0033  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00000202
+KERNELBASE!RaiseException+0x8a:
+00007ff8`4c1d408a 0f1f440000      nop     dword ptr [rax+rax]
+ # Child-SP          RetAddr               Call Site
+00 000000a4`dbefd5a0 00007ff6`109314b7     KERNELBASE!RaiseException+0x8a
+01 000000a4`dbefd6a0 00007ff6`109315a7     nano_sensor!ns::crashdump::`anonymous namespace'::raise_and_dump+0x47 [D:\self_projects\nano-sensor\src\crashdump_windows.cpp @ 112]
+02 000000a4`dbefd6e0 00007fff`ce1bab1e     nano_sensor!ns::crashdump::`anonymous namespace'::terminate_handler+0x17 [D:\self_projects\nano-sensor\src\crashdump_windows.cpp @ 138]
+03 000000a4`dbefd710 00007ff8`3d35200d     ucrtbased!terminate+0x2e [minkernel\crts\ucrt\src\appcrt\misc\terminate.cpp @ 49]
+04 000000a4`dbefd750 00007ff8`3d352cba     VCRUNTIME140_1D!FindHandler<__FrameHandler4>+0x61d
+05 000000a4`dbefd930 00007ff8`3d352d4a     VCRUNTIME140_1D!__InternalCxxFrameHandler<__FrameHandler4>+0x47a
+06 000000a4`dbefda00 00007ff8`3d356d3b     VCRUNTIME140_1D!__InternalCxxFrameHandlerWrapper<__FrameHandler4>+0x6a
+07 000000a4`dbefda60 00007ff8`4eb664af     VCRUNTIME140_1D!_CxxFrameHandler4+0xfb
+08 000000a4`dbefdaf0 00007ff8`4eac4065     ntdll!RtlpExecuteHandlerForException+0xf
+09 000000a4`dbefdb20 00007ff8`4ea19f3d     ntdll!RtlDispatchException+0x5f5
+0a 000000a4`dbefe280 00007ff8`4c1d408a     ntdll!RtlRaiseException+0x18d
+0b 000000a4`dbefeae0 00007ff8`21849362     KERNELBASE!RaiseException+0x8a
+0c 000000a4`dbefebe0 00007fff`dd864a29     VCRUNTIME140D!_CxxThrowException+0x132 [D:\a\_work\1\s\src\vctools\crt\vcruntime\src\eh\throw.cpp @ 79]
+0d 000000a4`dbefec70 00007ff6`1092cc62     MSVCP140D!std::_Xout_of_range+0x29 [D:\a\_work\1\s\src\vctools\crt\github\stl\src\xthrow.cpp @ 23]
+0e 000000a4`dbefecc0 00007ff6`1092ccde     nano_sensor!std::vector<ns::Finding const *,std::allocator<ns::Finding const *> >::_Xrange+0x12 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\vector @ 2188]
+0f 000000a4`dbefecf0 00007ff6`1091ef61     nano_sensor!std::vector<ns::Finding const *,std::allocator<ns::Finding const *> >::at+0x3e [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\vector @ 1950]
+10 000000a4`dbefed30 00007ff6`1092fec7     nano_sensor!ns::`anonymous namespace'::worst_finding+0x191 [D:\self_projects\nano-sensor\src\agent.cpp @ 176]
+11 000000a4`dbefeed0 00007ff6`10930adf     nano_sensor!ns::Agent::Impl::run_scan+0x157 [D:\self_projects\nano-sensor\src\agent.cpp @ 319]
+12 000000a4`dbeff720 00007ff6`10920942     nano_sensor!ns::Agent::Impl::worker_loop+0xdf [D:\self_projects\nano-sensor\src\agent.cpp @ 280]
+13 000000a4`dbeff7d0 00007ff6`10929504     nano_sensor!`ns::Agent::start'::`2'::<lambda_2>::operator()+0x22 [D:\self_projects\nano-sensor\src\agent.cpp @ 564]
+14 000000a4`dbeff800 00007ff6`10926a00     nano_sensor!std::invoke<`ns::Agent::start'::`2'::<lambda_2> >+0x14 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\type_traits @ 1670]
+15 000000a4`dbeff830 00007fff`ce1c2ec5     nano_sensor!std::thread::_Invoke<std::tuple<`ns::Agent::start'::`2'::<lambda_2> >,0>+0x50 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\thread @ 61]
+16 000000a4`dbeff890 00007ff8`4d74dda7     ucrtbased!thread_start<unsigned int (__cdecl*)(void *),1>+0xa5 [minkernel\crts\ucrt\src\appcrt\startup\thread.cpp @ 97]
+17 000000a4`dbeff8f0 00007ff8`4ea7ee4c     kernel32!BaseThreadInitThunk+0x17
+18 000000a4`dbeff920 00000000`00000000     ntdll!RtlUserThreadStart+0x2c

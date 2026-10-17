@@ -1,0 +1,36 @@
+﻿This dump file has an exception of interest stored in it.
+The stored exception information can be accessed via .ecxr
+(1e08.421c): Access violation - code c0000005 (first/second chance not available)
+For analysis of this file, run !analyze -v
+ntdll!NtGetContextThread+0x14:
+00007ff8`4eb63ca4 c3              ret
+0:010> cdb: Reading initial command '.ecxr; kn 6; .frame 0; dx -r1 l; dq poi(@rcx) L8; dx (*((std::_Ref_count_base*)((void**)@rcx)[1])); q'
+rax=dddddddddddddddd rbx=0000000000000000 rcx=0000020030ab1e40
+rdx=000002002b020280 rsi=000000f3d64ffa98 rdi=000000f3d64ffac0
+rip=00007ff7ef980606 rsp=000000f3d64ff320 rbp=0000000000000000
+ r8=7ffffffffffffffc  r9=000000f3d5804000 r10=00007fffe0760000
+r11=cdcdcdcdcdcdcdcd r12=0000000000000000 r13=0000000000000000
+r14=0000000000000000 r15=0000000000000000
+iopl=0         nv up ei pl nz na po nc
+cs=0033  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010202
+nano_sensor!ns::Agent::Impl::run_scan+0x786:
+00007ff7`ef980606 488b4008        mov     rax,qword ptr [rax+8] ds:dddddddd`dddddde5=????????????????
+ # Child-SP          RetAddr               Call Site
+00 000000f3`d64ff320 00007ff7`ef980b9f     nano_sensor!ns::Agent::Impl::run_scan+0x786 [D:\self_projects\nano-sensor\src\agent.cpp @ 371]
+01 000000f3`d64ffb70 00007ff7`ef970902     nano_sensor!ns::Agent::Impl::worker_loop+0xdf [D:\self_projects\nano-sensor\src\agent.cpp @ 280]
+02 000000f3`d64ffc20 00007ff7`ef9794c4     nano_sensor!`ns::Agent::start'::`2'::<lambda_2>::operator()+0x22 [D:\self_projects\nano-sensor\src\agent.cpp @ 559]
+03 000000f3`d64ffc50 00007ff7`ef9769c0     nano_sensor!std::invoke<`ns::Agent::start'::`2'::<lambda_2> >+0x14 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\type_traits @ 1670]
+04 000000f3`d64ffc80 00007fff`e0802ec5     nano_sensor!std::thread::_Invoke<std::tuple<`ns::Agent::start'::`2'::<lambda_2> >,0>+0x50 [C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\thread @ 61]
+05 000000f3`d64ffce0 00007ff8`4d74dda7     ucrtbased!thread_start<unsigned int (__cdecl*)(void *),1>+0xa5 [minkernel\crts\ucrt\src\appcrt\startup\thread.cpp @ 97]
+00 000000f3`d64ff320 00007ff7`ef980b9f     nano_sensor!ns::Agent::Impl::run_scan+0x786 [D:\self_projects\nano-sensor\src\agent.cpp @ 371]
+l                : {...} [Type: std::shared_ptr<ns::`anonymous namespace'::ScanListener>]
+    [<Raw View>]     [Type: std::shared_ptr<ns::`anonymous namespace'::ScanListener>]
+    [ptr]            : 0x2002cf95090 [Type: ns::`anonymous-namespace'::ScanListener *]
+    [control block]  [Type: std::_Ref_count_base]
+00000200`2cf95090  dddddddd`dddddddd dddddddd`dddddddd
+00000200`2cf950a0  dddddddd`dddddddd dddddddd`dddddddd
+00000200`2cf950b0  dddddddd`dddddddd dddddddd`dddddddd
+00000200`2cf950c0  dddddddd`dddddddd dddddddd`dddddddd
+(*((std::_Ref_count_base*)((void**)@rcx)[1])) [Type: std::_Ref_count_base]
+    [+0x008] _Uses            : Unable to read memory at Address 0x2002d6f9578
+    [+0x00c] _Weaks           : Unable to read memory at Address 0x2002d6f957c

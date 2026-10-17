@@ -17,6 +17,24 @@ endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+# AddressSanitizer build (MSVC /fsanitize=address, or -fsanitize=address).
+# Use a separate build directory: cmake -B build-asan -DNS_ASAN=ON
+# The planted use-after-free (docs/DEBUGGING.md, bug 1) runs silently in an
+# ordinary Release build; under ASan it stops at the bad access with the
+# allocation and free stacks attached.
+option(NS_ASAN "Build with AddressSanitizer" OFF)
+if(NS_ASAN)
+    if(MSVC)
+        add_compile_options(/fsanitize=address /Zi)
+        # Incremental linking and /RTC are incompatible with ASan.
+        add_link_options(/INCREMENTAL:NO)
+        string(REGEX REPLACE "/RTC[^ ]*" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 # ---------------------------------------------------------------------------
 # ns_core -- everything except main(), so tests can link it directly.
 # ---------------------------------------------------------------------------
@@ -27,15 +45,21 @@ set(NS_SOURCES
     src/vercmp.cpp
     src/cve.cpp
     src/spool.cpp
+    src/agent.cpp
 )
 
 # Exactly one platform backend is compiled. The other is not #ifdef'd out from
 # inside -- it is simply not in the build. Keeping the OS-specific code in
 # whole files rather than in #ifdef blocks is the point of the platform layer.
 if(WIN32)
-    list(APPEND NS_SOURCES src/platform/platform_windows.cpp src/service_windows.cpp)
+    list(APPEND NS_SOURCES src/platform/platform_windows.cpp src/service_windows.cpp
+        # The Windows service split: named-pipe control channel, SQL Server
+        # over ODBC, minidumps, process self-inspection.
+        src/ipc_windows.cpp src/db_odbc.cpp src/crashdump_windows.cpp
+        src/procinfo_windows.cpp)
 elseif(UNIX AND NOT APPLE)
-    list(APPEND NS_SOURCES src/platform/platform_linux.cpp src/service_linux.cpp)
+    list(APPEND NS_SOURCES src/platform/platform_linux.cpp src/service_linux.cpp
+        src/windows_only_stubs.cpp)
 else()
     message(FATAL_ERROR
         "nano-sensor targets Windows and Linux only. macOS would need a third "
@@ -81,7 +105,10 @@ if(WIN32)
     # Winhttp:  the HTTPS/mTLS transport.
     # Crypt32:  PKCS#12 client-certificate loading.
     # Bcrypt:   SHA-256 for the server-certificate pin.
-    target_link_libraries(ns_core PUBLIC Advapi32 Iphlpapi Ws2_32 Winhttp Crypt32 Bcrypt)
+    # Odbc32:   SQL Server storage.
+    # Dbghelp:  MiniDumpWriteDump.
+    target_link_libraries(ns_core PUBLIC Advapi32 Iphlpapi Ws2_32 Winhttp Crypt32 Bcrypt
+        Odbc32 Dbghelp)
 elseif(NS_TLS_BACKEND STREQUAL "openssl")
     target_link_libraries(ns_core PUBLIC OpenSSL::SSL OpenSSL::Crypto)
 endif()
@@ -104,12 +131,54 @@ else()
     target_compile_options(nano-sensor PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# The console client: a separate process that talks to the service over the
+# control pipe.
+if(WIN32)
+    add_executable(nsctl src/nsctl.cpp)
+    target_link_libraries(nsctl PRIVATE ns_core)
+    target_compile_options(nsctl PRIVATE /W4 /permissive-)
+
+    # SQL Server index benchmark (tools/db/bench_index.ps1 drives it).
+    add_executable(ns_dbbench tools/dbbench.cpp)
+    target_link_libraries(ns_dbbench PRIVATE ns_core)
+    target_compile_options(ns_dbbench PRIVATE /W4 /permissive-)
+endif()
+
+# Every binary gets a PDB, Release included. A minidump without the PDB that
+# matches it byte-for-byte is a list of addresses; with it, it is a call stack
+# with source lines and locals. /Zi + /DEBUG cost nothing at runtime, and the
+# PDBs are kept with each build rather than shipped to hosts.
+if(MSVC)
+    foreach(t ns_core nano-sensor nsctl)
+        if(TARGET ${t})
+            target_compile_options(${t} PRIVATE /Zi)
+        endif()
+    endforeach()
+    foreach(t nano-sensor nsctl)
+        # /DEBUG turns off /OPT:REF and /OPT:ICF unless asked for; ask, in
+        # Release, so the shipped binary is the same size it would have been.
+        target_link_options(${t} PRIVATE /DEBUG
+            $<$<CONFIG:Release>:/OPT:REF> $<$<CONFIG:Release>:/OPT:ICF>)
+    endforeach()
+endif()
+
 # ---------------------------------------------------------------------------
-# Tests. No external framework -- see tests/test_util.hpp for why.
+# Tests: GoogleTest, fetched at configure time and pinned by hash.
 # ---------------------------------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
+    URL_HASH SHA256=7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+# Use the same dynamic CRT as everything else; otherwise MSVC links two CRTs
+# and allocations cross heaps.
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
 enable_testing()
 
-add_executable(ns_tests
+set(NS_TEST_SOURCES
     tests/main.cpp
     tests/test_json.cpp
     tests/test_vercmp.cpp
@@ -117,8 +186,12 @@ add_executable(ns_tests
     tests/test_spool.cpp
     tests/test_transport.cpp
 )
-target_link_libraries(ns_tests PRIVATE ns_core)
-target_include_directories(ns_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+if(WIN32)
+    list(APPEND NS_TEST_SOURCES tests/test_ipc.cpp tests/test_db.cpp)
+endif()
+
+add_executable(ns_tests ${NS_TEST_SOURCES})
+target_link_libraries(ns_tests PRIVATE ns_core GTest::gtest)
 
 if(MSVC)
     target_compile_options(ns_tests PRIVATE /W4 /permissive-)

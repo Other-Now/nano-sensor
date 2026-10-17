@@ -1,0 +1,21 @@
+﻿--- unelevated nsctl:
+nsctl: opening the pipe failed, error 5 (access denied)
+nsctl: the service only answers SYSTEM, elevated Administrators and itself -- run from an elevated prompt.
+exit=1
+--- unelevated read of state dir:
+denied: Access to the path 'C:\ProgramData\nano-sensor' is denied.
+--- SQL grants:
+acting_as findings_visible
+--------- ----------------
+NT SERVICE\nano-sensor 1165191
+
+INSERT: allowed (expected)
+DELETE: denied -- The DELETE permission was denied on the object 'findings', database 'nanosensor', schema 'dbo'.
+DROP: denied -- Cannot drop the table 'findings', because it does not exist or you do not have permission.
+CREATE TABLE: denied -- CREATE TABLE permission denied in database 'nanosensor'.
+--- soak trend:
+  10   3,36,69,120  h=269
+  50   3,37,30,560  h=271
+ 100   3,39,76,320  h=272
+ 150   3,39,51,744  h=270
+ 200   3,39,51,744  h=272

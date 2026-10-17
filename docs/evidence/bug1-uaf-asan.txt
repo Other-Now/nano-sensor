@@ -1,0 +1,109 @@
+﻿=================================================================
+==20188==ERROR: AddressSanitizer: heap-use-after-free on address 0x120d2e64ff40 at pc 0x7ff666052076 bp 0x00e018fff4f0 sp 0x00e018fff4f0
+READ of size 8 at 0x120d2e64ff40 thread T5
+    #0 0x7ff666052075 in ns::Agent::Impl::run_scan D:\self_projects\nano-sensor\src\agent.cpp:371
+    #1 0x7ff666053ad2 in ns::Agent::Impl::worker_loop D:\self_projects\nano-sensor\src\agent.cpp:280
+    #2 0x7ff66603e1a8 in std::thread::_Invoke<std::tuple<`ns::Agent::start'::`2'::<lambda_2> >,0> C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\thread:60
+    #3 0x7ff84bd6cd2f in wcsrchr+0x14f (C:\WINDOWS\System32\ucrtbase.dll+0x18002cd2f)
+    #4 0x7fff9ab4db3c in _sanitizer_start_switch_fiber+0x20fc (D:\self_projects\nano-sensor\build-asan\bin\RelWithDebInfo\clang_rt.asan_dynamic-x86_64.dll+0x18005db3c)
+    #5 0x7ff84d74dda6 in BaseThreadInitThunk+0x16 (C:\WINDOWS\System32\KERNEL32.DLL+0x18002dda6)
+    #6 0x7ff84ea7ee4b in RtlUserThreadStart+0x2b (C:\WINDOWS\SYSTEM32\ntdll.dll+0x18007ee4b)
+
+0x120d2e64ff40 is located 0 bytes inside of 288-byte region [0x120d2e64ff40,0x120d2e650060)
+freed by thread T6 here:
+    #0 0x7ff6660f1393 in operator delete D:\a\_work\1\s\src\vctools\asan\llvm\compiler-rt\lib\asan\asan_win_delete_scalar_size_thunk.cpp:41
+    #1 0x7ff66604d938 in ns::Agent::Impl::handle_scan D:\self_projects\nano-sensor\src\agent.cpp:456
+    #2 0x7ff66604c8cb in ns::Agent::handle D:\self_projects\nano-sensor\src\agent.cpp:601
+    #3 0x7ff66604849b in std::_Func_impl_no_alloc<`ns::Agent::start'::`13'::<lambda_1>,std::basic_string<char,std::char_traits<char>,std::allocator<char> >,std::basic_string<char,std::char_traits<char>,std::allocator<char> > const &,ns::ipc::ClientInfo const &>::_Do_call C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\functional:882
+    #4 0x7ff6660bd804 in ns::ipc::Server::Impl::serve D:\self_projects\nano-sensor\src\ipc_windows.cpp:164
+    #5 0x7ff6660b5dd3 in std::thread::_Invoke<std::tuple<`ns::ipc::Server::Impl::accept_loop'::`9'::<lambda_1> >,0> C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\thread:60
+    #6 0x7ff84bd6cd2f in wcsrchr+0x14f (C:\WINDOWS\System32\ucrtbase.dll+0x18002cd2f)
+    #7 0x7fff9ab4db3c in _sanitizer_start_switch_fiber+0x20fc (D:\self_projects\nano-sensor\build-asan\bin\RelWithDebInfo\clang_rt.asan_dynamic-x86_64.dll+0x18005db3c)
+    #8 0x7ff84d74dda6 in BaseThreadInitThunk+0x16 (C:\WINDOWS\System32\KERNEL32.DLL+0x18002dda6)
+    #9 0x7ff84ea7ee4b in RtlUserThreadStart+0x2b (C:\WINDOWS\SYSTEM32\ntdll.dll+0x18007ee4b)
+
+previously allocated by thread T6 here:
+    #0 0x7ff6660f1305 in operator new D:\a\_work\1\s\src\vctools\asan\llvm\compiler-rt\lib\asan\asan_win_new_scalar_thunk.cpp:40
+    #1 0x7ff66604d80d in ns::Agent::Impl::handle_scan D:\self_projects\nano-sensor\src\agent.cpp:449
+    #2 0x7ff66604c8cb in ns::Agent::handle D:\self_projects\nano-sensor\src\agent.cpp:601
+    #3 0x7ff66604849b in std::_Func_impl_no_alloc<`ns::Agent::start'::`13'::<lambda_1>,std::basic_string<char,std::char_traits<char>,std::allocator<char> >,std::basic_string<char,std::char_traits<char>,std::allocator<char> > const &,ns::ipc::ClientInfo const &>::_Do_call C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\functional:882
+    #4 0x7ff6660bd804 in ns::ipc::Server::Impl::serve D:\self_projects\nano-sensor\src\ipc_windows.cpp:164
+    #5 0x7ff6660b5dd3 in std::thread::_Invoke<std::tuple<`ns::ipc::Server::Impl::accept_loop'::`9'::<lambda_1> >,0> C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\thread:60
+    #6 0x7ff84bd6cd2f in wcsrchr+0x14f (C:\WINDOWS\System32\ucrtbase.dll+0x18002cd2f)
+    #7 0x7fff9ab4db3c in _sanitizer_start_switch_fiber+0x20fc (D:\self_projects\nano-sensor\build-asan\bin\RelWithDebInfo\clang_rt.asan_dynamic-x86_64.dll+0x18005db3c)
+    #8 0x7ff84d74dda6 in BaseThreadInitThunk+0x16 (C:\WINDOWS\System32\KERNEL32.DLL+0x18002dda6)
+    #9 0x7ff84ea7ee4b in RtlUserThreadStart+0x2b (C:\WINDOWS\SYSTEM32\ntdll.dll+0x18007ee4b)
+
+Thread T5 created by T0 here:
+    #0 0x7fff9ab4e0d7 in _asan_wrap_CreateThread+0x77 (D:\self_projects\nano-sensor\build-asan\bin\RelWithDebInfo\clang_rt.asan_dynamic-x86_64.dll+0x18005e0d7)
+    #1 0x7ff84bdba2b7 in beginthreadex+0x57 (C:\WINDOWS\System32\ucrtbase.dll+0x18007a2b7)
+    #2 0x7ff666052bc1 in ns::Agent::start D:\self_projects\nano-sensor\src\agent.cpp:564
+    #3 0x7ff666016882 in ``anonymous namespace'::cmd_run'::`2'::<lambda_2>::operator() D:\self_projects\nano-sensor\src\main.cpp:484
+    #4 0x7ff66601930c in std::_Func_impl_no_alloc<``anonymous namespace'::cmd_run'::`2'::<lambda_2>,int>::_Do_call C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\functional:882
+    #5 0x7ff66609ae74 in std::_Func_class<int>::operator() C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\functional:926
+    #6 0x7ff66609c70c in ns::service::run D:\self_projects\nano-sensor\src\service_windows.cpp:117
+    #7 0x7ff666023a3c in `anonymous namespace'::cmd_run D:\self_projects\nano-sensor\src\main.cpp:481
+    #8 0x7ff666031b74 in main D:\self_projects\nano-sensor\src\main.cpp:683
+    #9 0x7ff6660f1e8f in __scrt_common_main_seh D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:288
+    #10 0x7ff84d74dda6 in BaseThreadInitThunk+0x16 (C:\WINDOWS\System32\KERNEL32.DLL+0x18002dda6)
+    #11 0x7ff84ea7ee4b in RtlUserThreadStart+0x2b (C:\WINDOWS\SYSTEM32\ntdll.dll+0x18007ee4b)
+
+Thread T6 created by T4 here:
+    #0 0x7fff9ab4e0d7 in _asan_wrap_CreateThread+0x77 (D:\self_projects\nano-sensor\build-asan\bin\RelWithDebInfo\clang_rt.asan_dynamic-x86_64.dll+0x18005e0d7)
+    #1 0x7ff84bdba2b7 in beginthreadex+0x57 (C:\WINDOWS\System32\ucrtbase.dll+0x18007a2b7)
+    #2 0x7ff6660b63f4 in std::thread::_Start<`ns::ipc::Server::Impl::accept_loop'::`9'::<lambda_1> > C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\thread:78
+    #3 0x7ff6660ba6b4 in ns::ipc::Server::Impl::accept_loop D:\self_projects\nano-sensor\src\ipc_windows.cpp:215
+    #4 0x7ff6660b5ce7 in std::thread::_Invoke<std::tuple<`ns::ipc::Server::start'::`2'::<lambda_1> >,0> C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\thread:60
+    #5 0x7ff84bd6cd2f in wcsrchr+0x14f (C:\WINDOWS\System32\ucrtbase.dll+0x18002cd2f)
+    #6 0x7fff9ab4db3c in _sanitizer_start_switch_fiber+0x20fc (D:\self_projects\nano-sensor\build-asan\bin\RelWithDebInfo\clang_rt.asan_dynamic-x86_64.dll+0x18005db3c)
+    #7 0x7ff84d74dda6 in BaseThreadInitThunk+0x16 (C:\WINDOWS\System32\KERNEL32.DLL+0x18002dda6)
+    #8 0x7ff84ea7ee4b in RtlUserThreadStart+0x2b (C:\WINDOWS\SYSTEM32\ntdll.dll+0x18007ee4b)
+
+Thread T4 created by T0 here:
+    #0 0x7fff9ab4e0d7 in _asan_wrap_CreateThread+0x77 (D:\self_projects\nano-sensor\build-asan\bin\RelWithDebInfo\clang_rt.asan_dynamic-x86_64.dll+0x18005e0d7)
+    #1 0x7ff84bdba2b7 in beginthreadex+0x57 (C:\WINDOWS\System32\ucrtbase.dll+0x18007a2b7)
+    #2 0x7ff6660bdf35 in ns::ipc::Server::start D:\self_projects\nano-sensor\src\ipc_windows.cpp:258
+    #3 0x7ff666052b2b in ns::Agent::start D:\self_projects\nano-sensor\src\agent.cpp:555
+    #4 0x7ff666016882 in ``anonymous namespace'::cmd_run'::`2'::<lambda_2>::operator() D:\self_projects\nano-sensor\src\main.cpp:484
+    #5 0x7ff66601930c in std::_Func_impl_no_alloc<``anonymous namespace'::cmd_run'::`2'::<lambda_2>,int>::_Do_call C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\functional:882
+    #6 0x7ff66609ae74 in std::_Func_class<int>::operator() C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\functional:926
+    #7 0x7ff66609c70c in ns::service::run D:\self_projects\nano-sensor\src\service_windows.cpp:117
+    #8 0x7ff666023a3c in `anonymous namespace'::cmd_run D:\self_projects\nano-sensor\src\main.cpp:481
+    #9 0x7ff666031b74 in main D:\self_projects\nano-sensor\src\main.cpp:683
+    #10 0x7ff6660f1e8f in __scrt_common_main_seh D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:288
+    #11 0x7ff84d74dda6 in BaseThreadInitThunk+0x16 (C:\WINDOWS\System32\KERNEL32.DLL+0x18002dda6)
+    #12 0x7ff84ea7ee4b in RtlUserThreadStart+0x2b (C:\WINDOWS\SYSTEM32\ntdll.dll+0x18007ee4b)
+
+SUMMARY: AddressSanitizer: heap-use-after-free D:\self_projects\nano-sensor\src\agent.cpp:371 in ns::Agent::Impl::run_scan
+Shadow bytes around the buggy address:
+  0x120d2e64fc80: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x120d2e64fd00: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x120d2e64fd80: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x120d2e64fe00: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x120d2e64fe80: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+=>0x120d2e64ff00: fa fa fa fa fa fa fa fa[fd]fd fd fd fd fd fd fd
+  0x120d2e64ff80: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x120d2e650000: fd fd fd fd fd fd fd fd fd fd fd fd fa fa fa fa
+  0x120d2e650080: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x120d2e650100: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x120d2e650180: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==20188==ABORTING
