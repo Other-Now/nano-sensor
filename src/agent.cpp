@@ -557,8 +557,15 @@ bool Agent::start(std::string& error) {
                             return handle(req, who);
                         },
                         error)) {
+#if defined(_WIN32)
         m.watchdog.stop();
         return false;
+#else
+        // The control pipe is Windows-only; on Linux the agent still scans
+        // and reports, it just has no local control channel.
+        log_info("control channel not available on this platform", {{"reason", error}});
+        error.clear();
+#endif
     }
 
     m.worker = std::thread([this] { impl_->worker_loop(); });
